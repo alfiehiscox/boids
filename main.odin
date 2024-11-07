@@ -1,5 +1,6 @@
 package main
 
+import "core:fmt"
 import "core:math"
 import "core:math/linalg"
 import "core:math/rand"
@@ -11,11 +12,13 @@ WINDOW_HEIGHT :: 600
 BOID_SIZE :: 10
 BOID_TURN_THRESHOLD :: 100
 BOID_TURN_STRENGTH :: 100
+BOID_VISION_RADIUS :: 70
 
 Boid :: struct {
 	position: rl.Vector2,
 	velocity: rl.Vector2,
 	rotation: f32,
+	color:    rl.Color,
 }
 
 main :: proc() {
@@ -31,13 +34,14 @@ main :: proc() {
 	for _, i in boids {
 		boids[i] = random_boid()
 	}
+	boids[0].color = rl.RED
 
 	for !rl.WindowShouldClose() {
 		delta := rl.GetFrameTime()
 
-		for &boid in boids {
+		for &boid, i in boids {
 			update_boid(&boid, delta)
-			check_boid_collisions(&boid)
+			check_boid_collisions(&boid, i, boids[:])
 		}
 
 		{
@@ -59,6 +63,7 @@ random_boid :: proc() -> Boid {
 		position = random_vec_2(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT),
 		velocity = random_vec_2(200, 300, 200, 300),
 		rotation = rand.float32_range(0, 360),
+		color = rl.WHITE,
 	}
 }
 
@@ -69,7 +74,10 @@ random_vec_2 :: proc(minx, maxx, miny, maxy: f32) -> rl.Vector2 {
 }
 
 draw_boid :: proc(boid: Boid) {
-	rl.DrawPoly(boid.position, 3, BOID_SIZE, boid.rotation, rl.WHITE)
+	if boid.color == rl.RED {
+		rl.DrawCircleV(boid.position, BOID_VISION_RADIUS, rl.BLUE)
+	}
+	rl.DrawPoly(boid.position, 3, BOID_SIZE, boid.rotation, boid.color)
 }
 
 update_boid :: proc(boid: ^Boid, delta: f32) {
@@ -78,7 +86,7 @@ update_boid :: proc(boid: ^Boid, delta: f32) {
 	boid.rotation = math.atan2(boid.velocity.y, boid.velocity.x) * (180 / math.PI)
 }
 
-check_boid_collisions :: proc(boid: ^Boid) {
+check_boid_collisions :: proc(boid: ^Boid, i: int, boids: []Boid) {
 	target_velocity := boid.velocity
 
 	if boid.position.x < BOID_TURN_THRESHOLD {
@@ -93,5 +101,15 @@ check_boid_collisions :: proc(boid: ^Boid) {
 		target_velocity.y -= BOID_TURN_STRENGTH
 	}
 
+	for other_boid, ix in boids {
+		if ix == i {continue}
+		dist := rl.Vector2Distance(boid.position, other_boid.position)
+		if dist < BOID_VISION_RADIUS {
+			avoid := linalg.normalize(boid.position - other_boid.position) * 20
+			boid.velocity += avoid
+		}
+	}
+
 	boid.velocity = linalg.lerp(boid.velocity, target_velocity, 0.3)
+
 }

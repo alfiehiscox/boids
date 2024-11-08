@@ -6,7 +6,7 @@ import "core:math/linalg"
 import "core:math/rand"
 import rl "vendor:raylib"
 
-WINDOW_WIDTH :: 1200
+WINDOW_WIDTH :: 1000
 WINDOW_HEIGHT :: 800
 
 BOID_AMOUNT :: 100
@@ -28,7 +28,7 @@ Boid :: struct {
 }
 
 main :: proc() {
-	rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Forces")
+	rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Boids")
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(60)
 

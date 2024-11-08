@@ -6,156 +6,135 @@ import "core:math/linalg"
 import "core:math/rand"
 import rl "vendor:raylib"
 
-WINDOW_WIDTH :: 800
-WINDOW_HEIGHT :: 600
+WINDOW_WIDTH :: 1200
+WINDOW_HEIGHT :: 800
 
-BOID_SIZE :: 7
-BOID_VELOCITY_MAX :: 400
-BOID_VELOCITY_MIN :: -400
-
-BOID_TURN_THRESHOLD :: 40
-BOID_TURN_STRENGTH :: 30
-
-BOID_VISION_RADIUS :: 50
-BOID_FIELD_OF_VIEW :: 120
-
-BOID_COHESION :: 10
+BOID_AMOUNT :: 100
+BOID_SIZE :: 10
+BOID_SPEED :: 100
+BOID_VIEWING_ANGLE :: 140
+BOID_VIEWING_RADIUS :: 70
+BOID_TURNING_STR :: 80000
+BOID_COHESION :: 300
+BOID_ALIGNMENT_RADIUS :: 100
+BOID_ALIGNMENT :: 300
 
 Boid :: struct {
-	position: rl.Vector2,
-	velocity: rl.Vector2,
-	rotation: f32,
-	color:    rl.Color,
+	id:    int,
+	pos:   rl.Vector2,
+	vel:   rl.Vector2,
+	rot:   f32,
+	color: rl.Color,
 }
 
 main :: proc() {
-	rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "boids")
+	rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Forces")
 	defer rl.CloseWindow()
-
 	rl.SetTargetFPS(60)
 
-	middle_x := f32(WINDOW_WIDTH / 2)
-	middle_y := f32(WINDOW_HEIGHT / 2)
-
-	boids := [30]Boid{}
-	for _, i in boids {
-		boids[i] = random_boid()
+	boids := make([]Boid, BOID_AMOUNT)
+	for i in 0 ..< BOID_AMOUNT {
+		boids[i] = random_boid(i)
 	}
-	boids[0].color = rl.RED
 
 	for !rl.WindowShouldClose() {
 		delta := rl.GetFrameTime()
 
-		for &boid, i in boids {
-			update_boid(&boid, delta)
-			check_boid_collisions(&boid, i, boids[:])
+		for &boid in boids {
+			update_boid_position(&boid, boids, delta)
+			update_boid_rotation(&boid)
 		}
 
-		{
-			rl.BeginDrawing()
-			defer rl.EndDrawing()
-			rl.ClearBackground(rl.BLACK)
+		rl.BeginDrawing()
+		defer rl.EndDrawing()
+		rl.ClearBackground(rl.DARKBLUE)
 
-			rl.DrawFPS(30, 30)
+		for boid in boids {
+			draw_boid(boid)
+		}
+	}
+}
 
-			for boid in boids {
-				draw_boid(boid)
+random_boid :: proc(id: int) -> Boid {
+	return Boid {
+		id = id,
+		pos = {rand.float32_range(0, WINDOW_WIDTH), rand.float32_range(0, WINDOW_HEIGHT)},
+		vel = {rand.float32_range(-200, 200), rand.float32_range(-200, 200)},
+		rot = 0,
+		color = rl.RAYWHITE,
+	}
+}
+
+draw_boid :: proc(boid: Boid) {
+	rl.DrawPoly(boid.pos, 3, BOID_SIZE, boid.rot, boid.color)
+}
+
+update_boid_position :: proc(boid: ^Boid, boids: []Boid, delta: f32) {
+
+	update_separation(boid, boids, delta)
+	update_cohesion(boid, boids, delta)
+	update_alignment(boid, boids, delta)
+
+	// Max Velocity 
+	boid.vel = linalg.normalize(boid.vel) * 200
+
+	boid.pos += boid.vel * delta
+	if boid.pos.x > WINDOW_WIDTH {boid.pos.x = 0}
+	if boid.pos.x < 0 {boid.pos.x = WINDOW_WIDTH}
+	if boid.pos.y > WINDOW_HEIGHT {boid.pos.y = 0}
+	if boid.pos.y < 0 {boid.pos.y = WINDOW_HEIGHT}
+}
+
+// This could use a little tweaking but is working okay. 
+// Consider using a vision angle so they can't see behind themselves.
+update_separation :: proc(boid: ^Boid, boids: []Boid, delta: f32) {
+	for other_boid in boids {
+		if boid.id != other_boid.id {
+			dist := linalg.distance(boid.pos, other_boid.pos)
+			if dist < BOID_VIEWING_RADIUS {
+				// dist = max(dist, 0.1)
+				dir := linalg.normalize(other_boid.pos - boid.pos)
+				avoidance_dir := rl.Vector2{-dir.y, dir.x}
+				if rand.int_max(2) > 1 {avoidance_dir = rl.Vector2{dir.y, -dir.x}}
+				avoidance_str := BOID_TURNING_STR / (dist * dist)
+				avoidance_force := avoidance_dir * avoidance_str
+				boid.vel += avoidance_force * delta
 			}
 		}
 	}
 }
 
-random_boid :: proc() -> Boid {
-	return Boid {
-		position = random_vec_2(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT),
-		velocity = random_vec_2(
-			BOID_VELOCITY_MIN,
-			BOID_VELOCITY_MAX,
-			BOID_VELOCITY_MIN,
-			BOID_VELOCITY_MAX,
-		),
-		rotation = rand.float32_range(0, 360),
-		color = rl.WHITE,
-	}
+update_cohesion :: proc(boid: ^Boid, boids: []Boid, delta: f32) {
+	sum := rl.Vector2{0, 0}
+	for boid in boids {sum += boid.pos}
+	avg := sum / f32(len(boids))
+	dir := linalg.normalize(avg - boid.pos)
+	cohesion_force := dir * BOID_COHESION
+	boid.vel += cohesion_force * delta
 }
 
-random_vec_2 :: proc(minx, maxx, miny, maxy: f32) -> rl.Vector2 {
-	x := rand.float32_range(minx, maxx)
-	y := rand.float32_range(miny, maxy)
-	return {x, y}
-}
+update_alignment :: proc(boid: ^Boid, boids: []Boid, delta: f32) {
 
-draw_boid :: proc(boid: Boid) {
-	//if boid.color == rl.RED {
-	//	rl.DrawCircleV(boid.position, BOID_VISION_RADIUS, rl.BLUE)
-	//}
-	rl.DrawPoly(boid.position, 3, BOID_SIZE, boid.rotation, boid.color)
-}
-
-update_boid :: proc(boid: ^Boid, delta: f32) {
-	boid.position.x += boid.velocity.x * delta
-	boid.position.y += boid.velocity.y * delta
-	boid.rotation = math.atan2(boid.velocity.y, boid.velocity.x) * (180 / math.PI)
-}
-
-check_boid_collisions :: proc(boid: ^Boid, i: int, boids: []Boid) {
-	target_velocity := boid.velocity
-
-	if boid.position.x < BOID_TURN_THRESHOLD {
-		target_velocity.x += BOID_TURN_STRENGTH
-	} else if boid.position.x > WINDOW_WIDTH - BOID_TURN_STRENGTH {
-		target_velocity.x -= BOID_TURN_STRENGTH
-	}
-
-	if boid.position.y < BOID_TURN_THRESHOLD {
-		target_velocity.y += BOID_TURN_STRENGTH
-	} else if boid.position.y > WINDOW_HEIGHT - BOID_TURN_STRENGTH {
-		target_velocity.y -= BOID_TURN_STRENGTH
-	}
-
-	// TODO: have another look at this, not sure it's right
-	// avoidance behaviour
-	// avoidance_vector := rl.Vector2{0, 0}
-	// boid_direction := linalg.normalize(boid.velocity)
-	// for other_boid, ix in boids {
-	// 	if ix == i {continue}
-
-	// 	dist := rl.Vector2Distance(boid.position, other_boid.position)
-	// 	if dist < BOID_TURN_THRESHOLD {
-	// 		to_neighbour := linalg.normalize(other_boid.position - boid.position)
-	// 		product := rl.Vector2DotProduct(boid_direction, to_neighbour)
-	// 		angle := math.acos(product)
-
-	// 		if angle < BOID_FIELD_OF_VIEW * (math.PI / 180.0) {
-	// 			force := to_neighbour * (-1 / dist)
-	// 			avoidance_vector += force
-	// 		}
-	// 	}
-	// }
-	// target_velocity += avoidance_vector
-
+	count: f32 = 0
 	sum := rl.Vector2{0, 0}
 	for other_boid in boids {
-		sum += other_boid.position
+		if boid.id != other_boid.id {
+			dist := linalg.distance(boid.pos, other_boid.pos)
+			if dist < BOID_ALIGNMENT_RADIUS {
+				sum += other_boid.vel
+				count += 1
+			}
+		}
 	}
 
-	// cohesion behaviour 
-	if sum != 0 {
-		avg := sum / f32(len(boids))
-		cohesion := linalg.normalize(avg - boid.position)
-		target_velocity += cohesion * BOID_COHESION
+	if count > 0 {
+		avg_vel := sum / count
+		alignment := linalg.normalize(avg_vel - boid.vel) * BOID_ALIGNMENT
+		boid.vel += alignment * delta
 	}
+}
 
-	// Obey;max;and;min;velocities
-	target_length := rl.Vector2Length(target_velocity)
-	if target_length > BOID_VELOCITY_MAX {
-		target_velocity = linalg.normalize(target_velocity) * BOID_VELOCITY_MAX
-	}
-
-	if target_length < BOID_VELOCITY_MIN {
-		target_velocity = linalg.normalize(target_velocity) * BOID_VELOCITY_MIN
-	}
-
-	boid.velocity = linalg.lerp(boid.velocity, target_velocity, 0.3)
-	// boid.velocity = target_velocity
+update_boid_rotation :: proc(boid: ^Boid) {
+	radians := math.atan2(boid.vel.y, boid.vel.x)
+	boid.rot = radians * (180 / math.PI)
 }

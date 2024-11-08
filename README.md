@@ -1,19 +1,20 @@
 # Odin Boids 
 
-A 140LoC implementation of the [boids algorithm](https://en.wikipedia.org/wiki/Boids), using odin and raylib. 
+A *140 LoC* implementation of the [boids algorithm](https://en.wikipedia.org/wiki/Boids), using odin and raylib. 
 
 First non-trivial program in odin and raylib. 
 
 # Example 
 
-
+![](https://github.com/alfiehiscox/boids/blob/main/boids.gif)
 
 # Details 
 
-[Odin](https://odin-lang.org/)     : odin version dev-2024-09-nightly:dd1f151
-[Raylib](https://www.raylib.com/)   : vendor lib of above
+[Odin](https://odin-lang.org/): dev-2024-09-nightly
 
-Tested on MacBook Pro 13-Inch (2020 - x86) : macOS Monterey v12.7.5
+[Raylib](https://www.raylib.com/)
+
+Tested on MacBookPro 13-Inch (x86) : macOS Monterey v12.7.5
 
 # Usage 
 

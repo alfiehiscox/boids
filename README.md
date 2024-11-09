@@ -6,7 +6,11 @@ First non-trivial program in odin and raylib.
 
 # Example 
 
-![](https://github.com/alfiehiscox/boids/blob/main/boids.gif)
+## 2D 
+
+![](https://github.com/alfiehiscox/boids/blob/main/2d/boids.gif)
+
+## 3D - TODO 
 
 # Details 
 

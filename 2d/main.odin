@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:math"
 import "core:math/linalg"
 import "core:math/rand"
+import mui "vendor:microui"
 import rl "vendor:raylib"
 
 WINDOW_WIDTH :: 1000
@@ -28,9 +29,10 @@ Boid :: struct {
 }
 
 main :: proc() {
-	rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Boids")
+	rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "2D Boids")
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(60)
+
 
 	boids := make([]Boid, BOID_AMOUNT)
 	for i in 0 ..< BOID_AMOUNT {

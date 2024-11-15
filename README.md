@@ -12,6 +12,8 @@ First non-trivial program in odin and raylib.
 
 ## 3D - TODO 
 
+Goal is to recreate this in 3D with raylib. 
+
 # Details 
 
 [Odin](https://odin-lang.org/): dev-2024-09-nightly
